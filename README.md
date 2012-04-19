@@ -1,4 +1,5 @@
 vow
 ===
 
-OAuth module for OWIN
+
+OAuth middleware for OWIN
