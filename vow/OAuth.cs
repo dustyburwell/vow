@@ -10,7 +10,7 @@ using vow.Extensions;
 namespace vow
 {
    /// <summary>
-   /// Sets content type in response if none present
+   /// Initiates the OAuth 2.0 protocol on a 401 status code.
    /// </summary>
    public static class OAuth
    {
