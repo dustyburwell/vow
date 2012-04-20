@@ -1,8 +1,9 @@
 ### vow
 
-OAuth 2.0 middleware for OWIN
+[OAuth 2.0](http://tools.ietf.org/html/draft-ietf-oauth-v2) middleware for 
+[OWIN](http://github.com/owin/gate)
 
-Responds to a 401 status message returned from a downstream middleware or application by
+Responds to a 401 Unauthorized status message returned from a downstream middleware or application by
 redirecting to a compatible OAuth 2.0 provider.
 
 #### Configuration
