@@ -22,15 +22,12 @@ namespace vow
       public static AppDelegate Middleware(AppDelegate app, OAuthConfiguration config)
       {
          return (env, result, fault) => {
-            //HandleToken
             if (HandleCode(env, result, config))
                return;
 
-            //HandleCookie
             if (HandleCookie(env, config))
                return;
 
-            //HandleErrors
             if (HandleErrors(env))
                return;
 
