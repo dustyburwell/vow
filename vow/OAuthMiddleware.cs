@@ -29,7 +29,7 @@ namespace vow
          m_fault = fault;
       }
 
-      public void ResultDelegate()
+      public void Handle()
       {
          if (HandleCode())
             return;
