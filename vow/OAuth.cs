@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Threading;
 using Gate;
 using Owin;
 using vow.Extensions;
@@ -47,7 +46,9 @@ namespace vow
                      }, body);
                }
                else
+               {
                   result(status, headers, body);
+               }
              },
              fault);
          };
