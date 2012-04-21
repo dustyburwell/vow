@@ -9,24 +9,23 @@ namespace vow
 {
    internal class OAuthMiddleware
    {
-      private readonly AppDelegate m_app;
       private readonly OAuthConfiguration m_config;
       private readonly IDictionary<string, object> m_env;
       private readonly ResultDelegate m_result;
-      private readonly Action<Exception> m_fault;
+      private readonly OAuthContext m_ctx;
 
       public OAuthMiddleware(
-         AppDelegate app, 
+         AppDelegate next, 
          OAuthConfiguration config, 
          IDictionary<string, object> env, 
          ResultDelegate result, 
          Action<Exception> fault)
       {
-         m_app = app;
          m_config = config;
          m_env = env;
          m_result = result;
-         m_fault = fault;
+         
+         m_ctx = new OAuthContext(next, m_env, m_result, fault);
       }
 
       public void Handle()
@@ -40,18 +39,15 @@ namespace vow
          if (HandleErrors())
             return;
 
-         m_app(m_env, RedirectIfUnauthorized, m_fault);
+         m_ctx.Next(RedirectIfUnauthorized);
       }
 
       private void RedirectIfUnauthorized(string status, IDictionary<string, IEnumerable<string>> headers, BodyDelegate body)
       {
          if (status.ToLower() == "401 unauthorized")
          {
-            var redirectTo = string.Format("{0}?client_id={1}&redirect_url={2}", m_config.AuthorizeEndpoint, m_config.ClientId, m_env.GetUri());
-
-            m_result("302 Found", new Dictionary<string, IEnumerable<string>> {
-               {"Location", new[] {redirectTo}}
-            }, body);
+            var to = string.Format("{0}?client_id={1}&redirect_url={2}", m_config.AuthorizeEndpoint, m_config.ClientId, m_env.GetUri());
+            m_ctx.Redirect(to);
          }
          else
          {
@@ -76,7 +72,7 @@ namespace vow
          }
          catch (Exception e)
          {
-            m_fault(new TokenRequestFailed(e));
+            m_ctx.Fault(new TokenRequestFailed(e));
             return true;
          }
 
@@ -84,7 +80,7 @@ namespace vow
 
          if (string.IsNullOrWhiteSpace(tokenValue))
          {
-            m_fault(new InvalidTokenResponse(tokenResponse));
+            m_ctx.Fault(new InvalidTokenResponse(tokenResponse));
             return true;
          }
 
@@ -94,14 +90,10 @@ namespace vow
             .Where(g => g.Key != "code")
             .ToQueryString();
 
-         m_result(
-            "302 Found",
-            new Dictionary<string, IEnumerable<string>> {
-               {"Location", new [] {url.ToString()}},
+         m_ctx.Redirect(url.ToString(), new Dictionary<string, IEnumerable<string>> {
                {"Set-Cookie", new [] {string.Format("{0}={1}", m_config.CookieName, tokenValue)}}
-            },
-            m_env.Get<BodyDelegate>(OwinConstants.RequestBody));
-
+            });
+         
          return true;
       }
 
@@ -125,7 +117,7 @@ namespace vow
          var errorDescription = m_env.GetQueryParameter("error_description");
          var errorUri = m_env.GetQueryParameter("error_uri");
 
-         m_fault(new OAuthError(error) {
+         m_ctx.Fault(new OAuthError(error) {
             ErrorDescription = errorDescription,
             ErrorUri = errorUri
          });
