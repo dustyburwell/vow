@@ -5,7 +5,7 @@ namespace vow
    public class TokenRequestFailed : Exception
    {
       public TokenRequestFailed(Exception innerException)
-         : base("Token request faield", innerException)
+         : base("Token request failed", innerException)
       {
       }
    }

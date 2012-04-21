@@ -22,13 +22,13 @@ namespace vow
       public static AppDelegate Middleware(AppDelegate app, OAuthConfiguration config)
       {
          return (env, result, fault) => {
-            if (HandleCode(env, result, config))
+            if (HandleCode(env, result, fault, config))
                return;
 
             if (HandleCookie(env, config))
                return;
 
-            if (HandleErrors(env))
+            if (HandleErrors(env, fault))
                return;
 
             app(env, (status, headers, body) => {
@@ -53,7 +53,7 @@ namespace vow
          };
       }
 
-      private static bool HandleCode(IDictionary<string, object> env, ResultDelegate result, OAuthConfiguration config)
+      private static bool HandleCode(IDictionary<string, object> env, ResultDelegate result, Action<Exception> fault, OAuthConfiguration config)
       {
          var code = env.GetQueryParameter("code");
 
@@ -70,13 +70,17 @@ namespace vow
          }
          catch (Exception e)
          {
-            throw new TokenRequestFailed(e);
+            fault(new TokenRequestFailed(e));
+            return true;
          }
 
          string tokenValue = Query.ParseFormEncodedString(tokenResponse)["access_token"].FirstOrDefault();
 
          if (string.IsNullOrWhiteSpace(tokenValue))
-            throw new InvalidTokenResponse(tokenResponse);
+         {
+            fault(new InvalidTokenResponse(tokenResponse));
+            return true;
+         }
 
          var url = env.GetUri();
 
@@ -107,7 +111,7 @@ namespace vow
          return false;
       }
 
-      private static bool HandleErrors(IDictionary<string, object> env)
+      private static bool HandleErrors(IDictionary<string, object> env, Action<Exception> fault)
       {
          var error = env.GetQueryParameter("error");
 
@@ -117,10 +121,12 @@ namespace vow
          var errorDescription = env.GetQueryParameter("error_description");
          var errorUri = env.GetQueryParameter("error_uri");
 
-         throw new OAuthError(error) {
+         fault(new OAuthError(error) {
             ErrorDescription = errorDescription,
             ErrorUri = errorUri
-         };
+         });
+
+         return true;
       }
 
       private static void EmptyBody(

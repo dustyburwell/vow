@@ -9,6 +9,11 @@ namespace vow
          ResponseString = responseString;
       }
 
+      public override string Message
+      {
+         get { return ResponseString; }
+      }
+
       public string ResponseString { get; set; }
    }
 }

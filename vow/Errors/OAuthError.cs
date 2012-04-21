@@ -14,6 +14,11 @@ namespace vow
       public string ErrorDescription { get; set; }
       public string ErrorUri { get; set; }
 
+      public override string Message
+      {
+         get { return ToString(); }
+      }
+
       public override string ToString()
       {
          var message = new StringBuilder();
