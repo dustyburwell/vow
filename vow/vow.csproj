@@ -52,10 +52,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Extensions\Cookie.cs" />
+    <Compile Include="Errors\InvalidTokenResponse.cs" />
     <Compile Include="OAuth.cs" />
     <Compile Include="OAuthConfiguration.cs" />
+    <Compile Include="Errors\OAuthError.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Extensions\Query.cs" />
+    <Compile Include="Errors\TokenRequestFailed.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

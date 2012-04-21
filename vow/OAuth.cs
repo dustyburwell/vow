@@ -31,7 +31,7 @@ namespace vow
                return;
 
             //HandleErrors
-            if (HandleErrors(env, result))
+            if (HandleErrors(env))
                return;
 
             app(env, (status, headers, body) => {
@@ -66,38 +66,36 @@ namespace vow
          var tokenRequest = string.Format(
             "client_id={0}&client_secret={1}&code={2}", config.ClientId, config.ClientSecret, code);
 
+         string tokenResponse;
          try
          {
-            string tokenResponse = 
-               new WebClient().UploadString(config.TokenEndpoint, tokenRequest);
-
-            string tokenValue = Query.ParseFormEncodedString(tokenResponse)["access_token"].First();
-
-            // todo: check that the response is well formed.
-
-            var url = env.GetUri();
-
-            url.Query = Query.ParseFormEncodedString(url.Query)
-               .Where(g => g.Key != "code")
-               .ToQueryString();
-            
-            result(
-               "302 Found", 
-               new Dictionary<string, IEnumerable<string>> {
-                  {"Location", new [] {url.ToString()}},
-                  {"Set-Cookie", new [] {string.Format("{0}={1}", config.CookieName, tokenValue)}}
-               }, 
-               env.Get<BodyDelegate>(OwinConstants.RequestBody, EmptyBody));
-
-            return true;
+            tokenResponse = new WebClient().UploadString(config.TokenEndpoint, tokenRequest);
          }
-         catch (Exception)
+         catch (Exception e)
          {
-            // output errors
-            throw;
+            throw new TokenRequestFailed(e);
          }
 
-         return false;
+         string tokenValue = Query.ParseFormEncodedString(tokenResponse)["access_token"].FirstOrDefault();
+
+         if (string.IsNullOrWhiteSpace(tokenValue))
+            throw new InvalidTokenResponse(tokenResponse);
+
+         var url = env.GetUri();
+
+         url.Query = Query.ParseFormEncodedString(url.Query)
+            .Where(g => g.Key != "code")
+            .ToQueryString();
+            
+         result(
+            "302 Found", 
+            new Dictionary<string, IEnumerable<string>> {
+               {"Location", new [] {url.ToString()}},
+               {"Set-Cookie", new [] {string.Format("{0}={1}", config.CookieName, tokenValue)}}
+            }, 
+            env.Get<BodyDelegate>(OwinConstants.RequestBody, EmptyBody));
+
+         return true;
       }
 
       private static bool HandleCookie(IDictionary<string, object> env, OAuthConfiguration config)
@@ -112,9 +110,20 @@ namespace vow
          return false;
       }
 
-      private static bool HandleErrors(IDictionary<string, object> env, ResultDelegate result)
+      private static bool HandleErrors(IDictionary<string, object> env)
       {
-         return false;
+         var error = env.GetQueryParameter("error");
+
+         if (error == null)
+            return false;
+
+         var errorDescription = env.GetQueryParameter("error_description");
+         var errorUri = env.GetQueryParameter("error_uri");
+
+         throw new OAuthError(error) {
+            ErrorDescription = errorDescription,
+            ErrorUri = errorUri
+         };
       }
 
       private static void EmptyBody(
