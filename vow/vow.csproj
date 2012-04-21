@@ -56,6 +56,7 @@
     <Compile Include="OAuth.cs" />
     <Compile Include="OAuthConfiguration.cs" />
     <Compile Include="Errors\OAuthError.cs" />
+    <Compile Include="OAuthMiddleware.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Extensions\Query.cs" />
     <Compile Include="Errors\TokenRequestFailed.cs" />
