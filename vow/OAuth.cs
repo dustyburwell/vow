@@ -94,7 +94,7 @@ namespace vow
                {"Location", new [] {url.ToString()}},
                {"Set-Cookie", new [] {string.Format("{0}={1}", config.CookieName, tokenValue)}}
             }, 
-            env.Get<BodyDelegate>(OwinConstants.RequestBody, EmptyBody));
+            env.Get<BodyDelegate>(OwinConstants.RequestBody));
 
          return true;
       }
@@ -127,15 +127,6 @@ namespace vow
          });
 
          return true;
-      }
-
-      private static void EmptyBody(
-         Func<ArraySegment<byte>, bool> write, 
-         Func<Action, bool> flush, 
-         Action<Exception> end, 
-         CancellationToken cancellationToken)
-      {
-         end(null);
       }
    }
 }
