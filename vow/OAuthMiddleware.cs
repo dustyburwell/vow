@@ -11,64 +11,72 @@ namespace vow
    {
       private readonly AppDelegate m_app;
       private readonly OAuthConfiguration m_config;
+      private readonly IDictionary<string, object> m_env;
+      private readonly ResultDelegate m_result;
+      private readonly Action<Exception> m_fault;
 
-      public OAuthMiddleware(AppDelegate app, OAuthConfiguration config)
+      public OAuthMiddleware(
+         AppDelegate app, 
+         OAuthConfiguration config, 
+         IDictionary<string, object> env, 
+         ResultDelegate result, 
+         Action<Exception> fault)
       {
          m_app = app;
          m_config = config;
+         m_env = env;
+         m_result = result;
+         m_fault = fault;
       }
 
-      public void ResultDelegate(IDictionary<string, object> env, ResultDelegate result, Action<Exception> fault)
+      public void ResultDelegate()
       {
-         if (HandleCode(env, result, fault, m_config))
+         if (HandleCode())
             return;
 
-         if (HandleCookie(env, m_config))
+         if (HandleCookie())
             return;
 
-         if (HandleErrors(env, fault))
+         if (HandleErrors())
             return;
 
-         m_app(env, (status, headers, body) => {
-            if (status.ToLower() == "401 unauthorized")
-            {
-               var redirectTo = string.Format(
-                  "{0}?client_id={1}&redirect_url={2}",
-                  m_config.AuthorizeEndpoint,
-                  m_config.ClientId,
-                  env.GetUri());
-
-               result(
-                  "302 Found",
-                  new Dictionary<string, IEnumerable<string>> {
-                     { "Location", new [] { redirectTo }}
-                  }, body);
-            }
-            else
-            {
-               result(status, headers, body);
-            }
-         }, fault);
+         m_app(m_env, RedirectIfUnauthorized, m_fault);
       }
 
-      private bool HandleCode(IDictionary<string, object> env, ResultDelegate result, Action<Exception> fault, OAuthConfiguration config)
+      private void RedirectIfUnauthorized(string status, IDictionary<string, IEnumerable<string>> headers, BodyDelegate body)
       {
-         var code = env.GetQueryParameter("code");
+         if (status.ToLower() == "401 unauthorized")
+         {
+            var redirectTo = string.Format("{0}?client_id={1}&redirect_url={2}", m_config.AuthorizeEndpoint, m_config.ClientId, m_env.GetUri());
+
+            m_result("302 Found", new Dictionary<string, IEnumerable<string>> {
+               {"Location", new[] {redirectTo}}
+            }, body);
+         }
+         else
+         {
+            m_result(status, headers, body);
+         }
+      }
+
+      private bool HandleCode()
+      {
+         var code = m_env.GetQueryParameter("code");
 
          if (string.IsNullOrWhiteSpace(code))
             return false;
 
          var tokenRequest = string.Format(
-            "client_id={0}&client_secret={1}&code={2}", config.ClientId, config.ClientSecret, code);
+            "client_id={0}&client_secret={1}&code={2}", m_config.ClientId, m_config.ClientSecret, code);
 
          string tokenResponse;
          try
          {
-            tokenResponse = new WebClient().UploadString(config.TokenEndpoint, tokenRequest);
+            tokenResponse = new WebClient().UploadString(m_config.TokenEndpoint, tokenRequest);
          }
          catch (Exception e)
          {
-            fault(new TokenRequestFailed(e));
+            m_fault(new TokenRequestFailed(e));
             return true;
          }
 
@@ -76,48 +84,48 @@ namespace vow
 
          if (string.IsNullOrWhiteSpace(tokenValue))
          {
-            fault(new InvalidTokenResponse(tokenResponse));
+            m_fault(new InvalidTokenResponse(tokenResponse));
             return true;
          }
 
-         var url = env.GetUri();
+         var url = m_env.GetUri();
 
          url.Query = Query.ParseFormEncodedString(url.Query)
             .Where(g => g.Key != "code")
             .ToQueryString();
 
-         result(
+         m_result(
             "302 Found",
             new Dictionary<string, IEnumerable<string>> {
                {"Location", new [] {url.ToString()}},
-               {"Set-Cookie", new [] {string.Format("{0}={1}", config.CookieName, tokenValue)}}
+               {"Set-Cookie", new [] {string.Format("{0}={1}", m_config.CookieName, tokenValue)}}
             },
-            env.Get<BodyDelegate>(OwinConstants.RequestBody));
+            m_env.Get<BodyDelegate>(OwinConstants.RequestBody));
 
          return true;
       }
 
-      private bool HandleCookie(IDictionary<string, object> env, OAuthConfiguration config)
+      private bool HandleCookie()
       {
-         string oauthCookie = env.GetCookie(config.CookieName);
+         string oauthCookie = m_env.GetCookie(m_config.CookieName);
 
          if (oauthCookie != null)
-            config.TokenCallback(oauthCookie);
+            m_config.TokenCallback(oauthCookie);
 
          return false;
       }
 
-      private bool HandleErrors(IDictionary<string, object> env, Action<Exception> fault)
+      private bool HandleErrors()
       {
-         var error = env.GetQueryParameter("error");
+         var error = m_env.GetQueryParameter("error");
 
          if (error == null)
             return false;
 
-         var errorDescription = env.GetQueryParameter("error_description");
-         var errorUri = env.GetQueryParameter("error_uri");
+         var errorDescription = m_env.GetQueryParameter("error_description");
+         var errorUri = m_env.GetQueryParameter("error_uri");
 
-         fault(new OAuthError(error) {
+         m_fault(new OAuthError(error) {
             ErrorDescription = errorDescription,
             ErrorUri = errorUri
          });

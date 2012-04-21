@@ -15,7 +15,7 @@ namespace vow
 
       public static AppDelegate Middleware(AppDelegate app, OAuthConfiguration config)
       {
-         return new OAuthMiddleware(app, config).ResultDelegate;
+         return (env, result, fault) => new OAuthMiddleware(app, config, env, result, fault).ResultDelegate();
       }
    }
 }
